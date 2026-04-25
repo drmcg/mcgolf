@@ -1,0 +1,67 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: Inter, Arial, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow: hidden;
+}
+#hud {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: 280px;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 16px;
+  z-index: 10;
+}
+#hud h1 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+.panel {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+label {
+  font-size: 13px;
+  color: #94a3b8;
+}
+select, input[type="range"], button {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 10px;
+  background: #111827;
+  color: #e2e8f0;
+}
+button {
+  cursor: pointer;
+  background: #2563eb;
+  border-color: #2563eb;
+  transition: background 0.2s ease;
+}
+button:hover {
+  background: #1d4ed8;
+}
+#status {
+  margin-top: 10px;
+  min-height: 44px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+#scoreboard {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+#canvasContainer {
+  position: absolute;
+  inset: 0;
+}

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Golf Game</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="hud">
+    <h1>3D Golf Game</h1>
+    <div class="panel">
+      <label for="club">Club</label>
+      <select id="club"></select>
+    </div>
+    <div class="panel">
+      <label for="power">Power <span id="powerValue">50</span>%</label>
+      <input id="power" type="range" min="10" max="100" value="50" />
+    </div>
+    <button id="hitButton">Hit Ball</button>
+    <div id="status"></div>
+    <div id="scoreboard">
+      <div>Tee: <span id="teePosition"></span></div>
+      <div>Hole: <span id="holePosition"></span></div>
+      <div>Shots: <span id="shotCount">0</span></div>
+      <div>Distance to hole: <span id="distanceToHole">0</span> m</div>
+    </div>
+  </div>
+  <div id="canvasContainer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
