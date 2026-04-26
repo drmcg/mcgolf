@@ -31,7 +31,7 @@ const TERRAIN = {
 };
 
 const COURSE_SIZE = 160;
-const TILE_SIZE = 4;
+const TILE_SIZE = 2;
 const GRID_SIZE = COURSE_SIZE / TILE_SIZE;
 
 let scene, camera, renderer, controls;
