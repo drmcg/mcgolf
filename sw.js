@@ -1,13 +1,13 @@
 const CACHE_NAME = 'mcgolf-pwa-v1';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/styles.css',
-  '/script.js',
-  '/manifest.json',
-  '/lib/three.min.js',
-  '/lib/OrbitControls.js',
-  '/icons/icon.svg'
+  './',
+  './index.html',
+  './styles.css',
+  './script.js',
+  './manifest.json',
+  './lib/three.min.js',
+  './lib/OrbitControls.js',
+  './icons/icon.svg'
 ];
 
 self.addEventListener('install', event => {
