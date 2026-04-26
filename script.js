@@ -6,6 +6,7 @@ const aimInput = document.getElementById('aim');
 const aimValue = document.getElementById('aimValue');
 const hitButton = document.getElementById('hitButton');
 const nextHoleButton = document.getElementById('nextHoleButton');
+const installButton = document.getElementById('installButton');
 const status = document.getElementById('status');
 const shotCountLabel = document.getElementById('shotCount');
 const distanceLabel = document.getElementById('distanceToHole');
@@ -53,6 +54,37 @@ const TOTAL_HOLES = 9;
 let courseScore = [];
 let terrainHeightMap = [];
 let terrainMesh = null;
+let deferredPrompt = null;
+
+function setupPWAInstallPrompt() {
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    deferredPrompt = event;
+    installButton.style.display = 'block';
+    installButton.textContent = 'Install App';
+  });
+
+  installButton.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const choiceResult = await deferredPrompt.userChoice;
+    if (choiceResult.outcome === 'accepted') {
+      updateStatus('App install accepted!');
+    } else {
+      updateStatus('App install dismissed.');
+    }
+    deferredPrompt = null;
+    installButton.style.display = 'none';
+  });
+}
+
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => updateStatus('PWA service worker installed.'))
+      .catch(err => console.warn('SW registration failed:', err));
+  }
+}
 
 function init() {
   const width = window.innerWidth;
@@ -92,6 +124,8 @@ function init() {
     aimAngle = Number(aimInput.value);
     createAimingLine();
   });
+  setupPWAInstallPrompt();
+  registerServiceWorker();
   updateStatus(`Hole 1 - Choose your club, power, and aim.`);
   createAimingLine();
   updateHUD();

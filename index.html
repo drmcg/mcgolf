@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="manifest" href="manifest.json" />
   <title>3D Golf Game</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="hud">
     <h1>3D Golf Game</h1>
+    <button id="installButton" style="display: none; width: 100%; margin-bottom: 12px;">Install App</button>
     <div class="panel">
       <label>Hole <span id="holeNumber">1</span> of <span id="totalHoles">9</span></label>
       <div id="courseScoreDisplay"></div>
