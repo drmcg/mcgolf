@@ -80,7 +80,7 @@ function setupPWAInstallPrompt() {
 
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js')
+    navigator.serviceWorker.register('./sw.js')
       .then(() => updateStatus('PWA service worker installed.'))
       .catch(err => {
         console.warn('SW registration failed:', err);
