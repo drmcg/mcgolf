@@ -89,8 +89,10 @@ function init() {
   aimInput.addEventListener('input', () => {
     aimValue.textContent = aimInput.value;
     aimAngle = Number(aimInput.value);
+    createAimingLine();
   });
   updateStatus(`Hole 1 - Choose your club, power, and aim.`);
+  createAimingLine();
   updateHUD();
   animate();
 }
@@ -105,6 +107,7 @@ function fillClubList() {
   clubSelect.addEventListener('change', () => {
     currentClub = CLUBS[clubSelect.selectedIndex];
     updateStatus(`Club selected: ${currentClub.name}. ${currentClub.description}`);
+    createAimingLine();
   });
 }
 
@@ -232,16 +235,30 @@ function placeHole() {
 }
 
 function createAimingLine() {
+  if (inMotion) return;
   if (aimingLine) scene.remove(aimingLine);
   
   const points = [];
   points.push(ballPosition.clone());
-  const previewDistance = currentClub.factor * 35;
-  const previewEnd = new THREE.Vector3().copy(ballPosition).addScaledVector(targetVector, previewDistance);
+  
+  // Calculate direction based on current aim setting
+  const pathDirection = new THREE.Vector3().subVectors(holeMesh.position, ballMesh.position).setY(0).normalize();
+  const aimDegrees = Number(aimInput.value);
+  const direction = pathDirection.clone()
+    .applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(aimDegrees));
+  
+  // Calculate preview distance based on current power and club
+  const power = Number(powerInput.value) / 100;
+  const baseDistance = currentClub.factor * 35;
+  const terrain = getTerrainAtBall();
+  const terrainMod = TERRAIN[terrain]?.multiplier || 0.7;
+  const previewDistance = baseDistance * power * terrainMod;
+  
+  const previewEnd = new THREE.Vector3().copy(ballPosition).addScaledVector(direction, previewDistance);
   points.push(previewEnd);
   
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const material = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2 });
+  const material = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 3 });
   aimingLine = new THREE.Line(geometry, material);
   scene.add(aimingLine);
 }
@@ -392,6 +409,7 @@ function animate() {
         finishHole();
       } else {
         updateStatus(`Ball stopped on ${terrain}. Choose next shot.`);
+        createAimingLine();
       }
     }
     if (ballMesh.position.y < -10) {
@@ -406,6 +424,7 @@ function animate() {
 
 powerInput.addEventListener('input', () => {
   powerValue.textContent = powerInput.value;
+  createAimingLine();
 });
 
 hitButton.addEventListener('click', hitBall);
