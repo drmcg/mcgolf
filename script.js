@@ -463,7 +463,8 @@ function createHole() {
 
 function resetBall() {
   const pos = cellToWorld(teeCell);
-  ballPosition.set(pos.x, 1.2, pos.z);
+  const height = getTerrainHeightAt(pos.x, pos.z);
+  ballPosition.set(pos.x, height + 1.2, pos.z);
   ballMesh.position.copy(ballPosition);
   velocity = 0;
   inMotion = false;
@@ -472,7 +473,8 @@ function resetBall() {
 
 function placeHole() {
   const pos = cellToWorld(holeCell);
-  holeMesh.position.set(pos.x, 0.5, pos.z);
+  const height = getTerrainHeightAt(pos.x, pos.z);
+  holeMesh.position.set(pos.x, height + 0.5, pos.z);
 }
 
 function createAimingLine() {
@@ -555,6 +557,34 @@ function getTerrainAtBall() {
   return courseGrid[xIndex][zIndex] || 'rough';
 }
 
+function getTerrainHeightAt(x, z) {
+  const gridX = (x + (GRID_SIZE * TILE_SIZE) / 2) / TILE_SIZE;
+  const gridZ = (z + (GRID_SIZE * TILE_SIZE) / 2) / TILE_SIZE;
+  const x0 = Math.floor(gridX);
+  const z0 = Math.floor(gridZ);
+  const x1 = Math.min(GRID_SIZE - 1, x0 + 1);
+  const z1 = Math.min(GRID_SIZE - 1, z0 + 1);
+  const sx = gridX - x0;
+  const sz = gridZ - z0;
+
+  const sample = (ix, iz) => {
+    if (ix < 0 || ix >= GRID_SIZE || iz < 0 || iz >= GRID_SIZE) return 0;
+    const type = courseGrid[ix][iz] || 'rough';
+    let height = terrainHeightMap[ix][iz] || 0;
+    if (type === 'sand') height += 0.05;
+    if (type === 'water') height -= 0.1;
+    return height;
+  };
+
+  const h00 = sample(x0, z0);
+  const h10 = sample(x1, z0);
+  const h01 = sample(x0, z1);
+  const h11 = sample(x1, z1);
+  const hx0 = THREE.MathUtils.lerp(h00, h10, sx);
+  const hx1 = THREE.MathUtils.lerp(h01, h11, sx);
+  return THREE.MathUtils.lerp(hx0, hx1, sz);
+}
+
 function computeShot() {
   const power = Number(powerInput.value) / 100;
   const baseDistance = currentClub.factor * 35;
@@ -633,6 +663,8 @@ function animate() {
   requestAnimationFrame(animate);
   if (inMotion) {
     ballPosition.addScaledVector(targetVector, velocity);
+    const terrainHeight = getTerrainHeightAt(ballPosition.x, ballPosition.z);
+    ballPosition.y = terrainHeight + 1.2;
     ballMesh.position.copy(ballPosition);
     velocity *= 0.96;
     const terrain = getTerrainAtBall();
