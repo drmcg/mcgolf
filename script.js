@@ -51,7 +51,7 @@ let currentHole = 1;
 const TOTAL_HOLES = 9;
 let courseScore = [];
 let terrainHeightMap = [];
-let terrainMeshes = [];
+let terrainMesh = null;
 
 function init() {
   const width = window.innerWidth;
@@ -112,8 +112,12 @@ function fillClubList() {
 }
 
 function clearTerrainMeshes() {
-  terrainMeshes.forEach(mesh => scene.remove(mesh));
-  terrainMeshes = [];
+  if (terrainMesh) {
+    scene.remove(terrainMesh);
+    terrainMesh.geometry.dispose();
+    terrainMesh.material.dispose();
+    terrainMesh = null;
+  }
 }
 
 function buildCourse() {
@@ -359,21 +363,85 @@ function createIrregularObstacle(grid, centerX, centerZ, radius, type) {
 }
 
 function createTerrainMeshes(grid) {
-  const planeGeometry = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
+  const vertexCount = GRID_SIZE * GRID_SIZE;
+  const positions = new Float32Array(vertexCount * 3);
+  const normals = new Float32Array(vertexCount * 3);
+  const colors = new Float32Array(vertexCount * 3);
+  const uvs = new Float32Array(vertexCount * 2);
+  const indices = new Uint16Array((GRID_SIZE - 1) * (GRID_SIZE - 1) * 6);
+  const heightValues = [];
+
   for (let x = 0; x < GRID_SIZE; x += 1) {
+    heightValues[x] = [];
     for (let z = 0; z < GRID_SIZE; z += 1) {
       const type = grid[x][z];
-      const mat = new THREE.MeshStandardMaterial({ color: TERRAIN[type].color, side: THREE.DoubleSide });
-      const tile = new THREE.Mesh(planeGeometry, mat);
-      tile.rotation.x = -Math.PI / 2;
-      const height = terrainHeightMap[x][z];
-      tile.position.set((x - GRID_SIZE / 2) * TILE_SIZE + TILE_SIZE / 2, height, (z - GRID_SIZE / 2) * TILE_SIZE + TILE_SIZE / 2);
-      scene.add(tile);
-      terrainMeshes.push(tile);
-      if (type === 'sand') tile.position.y = height + 0.05;
-      if (type === 'water') tile.position.y = height - 0.1;
+      const baseHeight = terrainHeightMap[x][z];
+      heightValues[x][z] = baseHeight + (type === 'sand' ? 0.05 : type === 'water' ? -0.1 : 0);
     }
   }
+
+  let posIndex = 0;
+  let uvIndex = 0;
+  for (let z = 0; z < GRID_SIZE; z += 1) {
+    for (let x = 0; x < GRID_SIZE; x += 1) {
+      const worldX = (x - GRID_SIZE / 2) * TILE_SIZE + TILE_SIZE / 2;
+      const worldZ = (z - GRID_SIZE / 2) * TILE_SIZE + TILE_SIZE / 2;
+      const type = grid[x][z];
+      const height = heightValues[x][z];
+
+      positions[posIndex] = worldX;
+      positions[posIndex + 1] = height;
+      positions[posIndex + 2] = worldZ;
+
+      const left = heightValues[Math.max(x - 1, 0)][z];
+      const right = heightValues[Math.min(x + 1, GRID_SIZE - 1)][z];
+      const down = heightValues[x][Math.max(z - 1, 0)];
+      const up = heightValues[x][Math.min(z + 1, GRID_SIZE - 1)];
+      const normal = new THREE.Vector3((left - right) / (2 * TILE_SIZE), 1, (down - up) / (2 * TILE_SIZE)).normalize();
+
+      normals[posIndex] = normal.x;
+      normals[posIndex + 1] = normal.y;
+      normals[posIndex + 2] = normal.z;
+
+      const color = new THREE.Color(TERRAIN[type].color);
+      colors[posIndex] = color.r;
+      colors[posIndex + 1] = color.g;
+      colors[posIndex + 2] = color.b;
+
+      uvs[uvIndex++] = x / (GRID_SIZE - 1);
+      uvs[uvIndex++] = z / (GRID_SIZE - 1);
+
+      posIndex += 3;
+    }
+  }
+
+  let index = 0;
+  for (let z = 0; z < GRID_SIZE - 1; z += 1) {
+    for (let x = 0; x < GRID_SIZE - 1; x += 1) {
+      const a = z * GRID_SIZE + x;
+      const b = a + GRID_SIZE;
+      const c = b + 1;
+      const d = a + 1;
+
+      indices[index++] = a;
+      indices[index++] = b;
+      indices[index++] = d;
+      indices[index++] = b;
+      indices[index++] = c;
+      indices[index++] = d;
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+
+  const material = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: false });
+  terrainMesh = new THREE.Mesh(geometry, material);
+  scene.add(terrainMesh);
 }
 
 function createBall() {
