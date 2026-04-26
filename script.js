@@ -122,25 +122,31 @@ function buildCourse() {
   terrainHeightMap = [];
   const grid = [];
   
-  // Initialize grid and height map
+  // Initialize grid and height map with more varied terrain
   for (let x = 0; x < GRID_SIZE; x += 1) {
     grid[x] = [];
     terrainHeightMap[x] = [];
     for (let z = 0; z < GRID_SIZE; z += 1) {
       grid[x][z] = 'rough';
-      // Perlin-like noise for height variation
-      terrainHeightMap[x][z] = Math.sin(x * 0.08) * Math.cos(z * 0.08) * 2;
+      // Create more varied hills and valleys with multiple octaves
+      const baseHeight = Math.sin(x * 0.08) * Math.cos(z * 0.08) * 2.5;
+      const hillNoise1 = Math.sin(x * 0.15) * Math.cos(z * 0.12) * 2;
+      const hillNoise2 = Math.sin(x * 0.25) * Math.cos(z * 0.2) * 1;
+      const valleyNoise = Math.sin(x * 0.05 + z * 0.03) * 1.2;
+      const ridgeNoise = Math.sin(x * 0.03 + z * 0.04) * 1.5;
+      terrainHeightMap[x][z] = baseHeight + hillNoise1 + hillNoise2 + valleyNoise + ridgeNoise;
+      
+      // Add some extreme variations occasionally
+      if (Math.random() < 0.02) {
+        terrainHeightMap[x][z] += (Math.random() - 0.5) * 3;
+      }
     }
   }
 
   const path = createRandomFairwayPath();
-  path.forEach((cell, index) => {
-    grid[cell.x][cell.z] = index === path.length - 1 ? 'green' : 'fairway';
-    // Flatten fairway and green
-    terrainHeightMap[cell.x][cell.z] = index === path.length - 1 ? 0.1 : 0.05;
-  });
-
-  placeObstacles(grid, path);
+  createVariableWidthFairway(grid, path);
+  createLargeGreen(grid, path);
+  placeIntersectingObstacles(grid, path);
   createTerrainMeshes(grid);
   courseGrid = grid;
 }
@@ -171,17 +177,184 @@ function createRandomFairwayPath() {
   return path;
 }
 
-function placeObstacles(grid, path) {
-  const obstacleCount = 24;
-  for (let i = 0; i < obstacleCount; i += 1) {
-    const x = Math.floor(Math.random() * GRID_SIZE);
-    const z = Math.floor(Math.random() * GRID_SIZE);
-    const inPath = path.some(cell => cell.x === x && cell.z === z);
-    if (inPath || grid[x][z] === 'green') continue;
-    if (Math.random() < 0.35) grid[x][z] = 'water';
-    else if (Math.random() < 0.7) grid[x][z] = 'sand';
-    else if (Math.random() < 0.95) grid[x][z] = 'rough';
-    else grid[x][z] = 'out';
+function createVariableWidthFairway(grid, path) {
+  path.forEach((cell, index) => {
+    // Vary fairway width along the path (2-5 tiles wide)
+    const width = Math.floor(Math.random() * 4) + 2; // 2 to 5 tiles wide
+    
+    for (let dx = -width; dx <= width; dx++) {
+      for (let dz = -width; dz <= width; dz++) {
+        const nx = cell.x + dx;
+        const nz = cell.z + dz;
+        
+        // Check if within bounds and within circular radius
+        if (nx >= 0 && nx < GRID_SIZE && nz >= 0 && nz < GRID_SIZE) {
+          const distance = Math.sqrt(dx * dx + dz * dz);
+          if (distance <= width) {
+            if (index === path.length - 1) {
+              // Green area handled separately
+              continue;
+            } else {
+              grid[nx][nz] = 'fairway';
+              // More varied fairway heights with gentle undulations
+              const baseHeight = 0.05 + Math.random() * 0.1;
+              const undulation = Math.sin(nx * 0.3) * Math.cos(nz * 0.3) * 0.15;
+              terrainHeightMap[nx][nz] = baseHeight + undulation;
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  // Add some fairway bunkers near the green
+  const greenCell = path[path.length - 1];
+  const bunkerCount = Math.floor(Math.random() * 2) + 1; // 1-2 bunkers near green
+  
+  for (let i = 0; i < bunkerCount; i++) {
+    const angle = (Math.PI * 2 * i) / bunkerCount + Math.random() * 0.5;
+    const distance = 2 + Math.random() * 2; // 2-4 tiles from green
+    const bunkerX = Math.round(greenCell.x + Math.cos(angle) * distance);
+    const bunkerZ = Math.round(greenCell.z + Math.sin(angle) * distance);
+    
+    if (bunkerX >= 0 && bunkerX < GRID_SIZE && bunkerZ >= 0 && bunkerZ < GRID_SIZE) {
+      if (grid[bunkerX][bunkerZ] === 'fairway') {
+        const bunkerSize = Math.floor(Math.random() * 2) + 1; // 1-2 radius
+        createIrregularObstacle(grid, bunkerX, bunkerZ, bunkerSize, 'sand');
+      }
+    }
+  }
+}
+
+function createLargeGreen(grid, path) {
+  const holeCell = path[path.length - 1];
+  const greenRadius = 3; // 3 tiles radius around hole
+  
+  for (let dx = -greenRadius; dx <= greenRadius; dx++) {
+    for (let dz = -greenRadius; dz <= greenRadius; dz++) {
+      const nx = holeCell.x + dx;
+      const nz = holeCell.z + dz;
+      
+      if (nx >= 0 && nx < GRID_SIZE && nz >= 0 && nz < GRID_SIZE) {
+        const distance = Math.sqrt(dx * dx + dz * dz);
+        if (distance <= greenRadius) {
+          grid[nx][nz] = 'green';
+          // Create more interesting green contours with subtle breaks
+          const baseHeight = 0.1;
+          const slopeBreak = Math.sin(nx * 0.5) * Math.cos(nz * 0.5) * 0.08;
+          const microUndulations = Math.sin(nx * 1.2) * Math.cos(nz * 1.2) * 0.02;
+          const distanceFalloff = (greenRadius - distance) * 0.01; // Slight slope toward hole
+          terrainHeightMap[nx][nz] = baseHeight + slopeBreak + microUndulations + distanceFalloff;
+        }
+      }
+    }
+  }
+}
+
+function placeIntersectingObstacles(grid, path) {
+  // Create large contiguous water features (lakes)
+  const lakeCount = Math.floor(Math.random() * 3) + 1; // 1-3 lakes per course
+  
+  for (let lake = 0; lake < lakeCount; lake++) {
+    // Place lake away from fairway and green
+    let lakeX, lakeZ, attempts = 0;
+    do {
+      lakeX = Math.floor(Math.random() * (GRID_SIZE - 8)) + 4;
+      lakeZ = Math.floor(Math.random() * (GRID_SIZE - 8)) + 4;
+      attempts++;
+    } while (attempts < 50 && isNearFairway(lakeX, lakeZ, path, 3));
+    
+    if (attempts < 50) {
+      // Create irregular lake shape
+      const lakeSize = Math.floor(Math.random() * 4) + 4; // 4-7 radius
+      createIrregularObstacle(grid, lakeX, lakeZ, lakeSize, 'water');
+    }
+  }
+  
+  // Create medium sand traps
+  const sandTrapCount = Math.floor(Math.random() * 4) + 2; // 2-5 sand traps
+  
+  for (let trap = 0; trap < sandTrapCount; trap++) {
+    let trapX, trapZ, attempts = 0;
+    do {
+      trapX = Math.floor(Math.random() * (GRID_SIZE - 6)) + 3;
+      trapZ = Math.floor(Math.random() * (GRID_SIZE - 6)) + 3;
+      attempts++;
+    } while (attempts < 50 && isNearFairway(trapX, trapZ, path, 2));
+    
+    if (attempts < 50) {
+      const trapSize = Math.floor(Math.random() * 3) + 2; // 2-4 radius
+      createIrregularObstacle(grid, trapX, trapZ, trapSize, 'sand');
+    }
+  }
+  
+  // Create crossing obstacles that intersect fairway
+  const crossingCount = Math.floor(Math.random() * 3) + 1; // 1-3 crossing obstacles
+  
+  for (let i = 0; i < crossingCount; i++) {
+    const pathIndex = Math.floor(Math.random() * (path.length - 8)) + 4; // Avoid start/end
+    const pathCell = path[pathIndex];
+    
+    const direction = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+    const length = Math.floor(Math.random() * 4) + 3; // 3-6 tiles long
+    const obstacleType = Math.random() < 0.6 ? 'water' : 'sand';
+    
+    if (direction === 'horizontal') {
+      for (let dz = -length; dz <= length; dz++) {
+        const nz = pathCell.z + dz;
+        if (nz >= 0 && nz < GRID_SIZE && grid[pathCell.x][nz] === 'fairway') {
+          grid[pathCell.x][nz] = obstacleType;
+        }
+      }
+    } else {
+      for (let dx = -length; dx <= length; dx++) {
+        const nx = pathCell.x + dx;
+        if (nx >= 0 && nx < GRID_SIZE && grid[nx][pathCell.z] === 'fairway') {
+          grid[nx][pathCell.z] = obstacleType;
+        }
+      }
+    }
+  }
+  
+  // Add some small rough patches and out-of-bounds areas
+  const roughPatchCount = Math.floor(Math.random() * 6) + 4; // 4-9 rough patches
+  
+  for (let i = 0; i < roughPatchCount; i++) {
+    const patchX = Math.floor(Math.random() * GRID_SIZE);
+    const patchZ = Math.floor(Math.random() * GRID_SIZE);
+    
+    if (grid[patchX][patchZ] === 'rough') {
+      const patchSize = Math.floor(Math.random() * 2) + 1; // 1-2 radius
+      createIrregularObstacle(grid, patchX, patchZ, patchSize, Math.random() < 0.7 ? 'rough' : 'out');
+    }
+  }
+}
+
+function isNearFairway(x, z, path, minDistance) {
+  return path.some(cell => {
+    const distance = Math.sqrt((cell.x - x) ** 2 + (cell.z - z) ** 2);
+    return distance < minDistance;
+  });
+}
+
+function createIrregularObstacle(grid, centerX, centerZ, radius, type) {
+  // Create irregular shapes by using noise to vary the boundary
+  for (let dx = -radius; dx <= radius; dx++) {
+    for (let dz = -radius; dz <= radius; dz++) {
+      const x = centerX + dx;
+      const z = centerZ + dz;
+      
+      if (x >= 0 && x < GRID_SIZE && z >= 0 && z < GRID_SIZE) {
+        const distance = Math.sqrt(dx * dx + dz * dz);
+        // Add some noise to make irregular shapes
+        const noise = (Math.sin(x * 0.5) + Math.cos(z * 0.5)) * 0.3;
+        const effectiveRadius = radius + noise;
+        
+        if (distance <= effectiveRadius && grid[x][z] !== 'fairway' && grid[x][z] !== 'green') {
+          grid[x][z] = type;
+        }
+      }
+    }
   }
 }
 
