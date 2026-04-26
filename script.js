@@ -2,6 +2,8 @@ const canvasContainer = document.getElementById('canvasContainer');
 const clubSelect = document.getElementById('club');
 const powerInput = document.getElementById('power');
 const powerValue = document.getElementById('powerValue');
+const aimInput = document.getElementById('aim');
+const aimValue = document.getElementById('aimValue');
 const hitButton = document.getElementById('hitButton');
 const nextHoleButton = document.getElementById('nextHoleButton');
 const status = document.getElementById('status');
@@ -43,6 +45,7 @@ let ballPosition = new THREE.Vector3();
 let targetVector = new THREE.Vector3();
 let inMotion = false;
 let currentClub = CLUBS[0];
+let aimAngle = 0;
 let aimingLine = null;
 let currentHole = 1;
 const TOTAL_HOLES = 9;
@@ -83,7 +86,11 @@ function init() {
 
   fillClubList();
   courseScore = [];
-  updateStatus(`Hole 1 - Choose your club and power.`);
+  aimInput.addEventListener('input', () => {
+    aimValue.textContent = aimInput.value;
+    aimAngle = Number(aimInput.value);
+  });
+  updateStatus(`Hole 1 - Choose your club, power, and aim.`);
   updateHUD();
   animate();
 }
@@ -270,6 +277,7 @@ function cellToWorld(cell) {
 
 function updateHUD() {
   powerValue.textContent = powerInput.value;
+  aimValue.textContent = aimInput.value;
   const par = calculatePar();
   parLabel.textContent = par;
   holeNumberLabel.textContent = currentHole;
@@ -293,11 +301,14 @@ function computeShot() {
   const power = Number(powerInput.value) / 100;
   const baseDistance = currentClub.factor * 35;
   const pathDirection = new THREE.Vector3().subVectors(holeMesh.position, ballMesh.position).setY(0).normalize();
+  const aimDegrees = Number(aimInput.value);
   const terrain = getTerrainAtBall();
   const terrainMod = TERRAIN[terrain]?.multiplier || 0.7;
   const accuracyLoss = 1 - currentClub.accuracy;
-  const randomAim = (Math.random() - 0.5) * accuracyLoss * 12;
-  targetVector.copy(pathDirection).applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(randomAim));
+  const randomAim = (Math.random() - 0.5) * accuracyLoss * 10;
+  targetVector.copy(pathDirection)
+    .applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(aimDegrees))
+    .applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(randomAim));
   const shotDistance = baseDistance * power * terrainMod;
   velocity = shotDistance / 12;
   createAimingLine();
@@ -313,7 +324,7 @@ function hitBall() {
   shotCount += 1;
   const shotDistance = computeShot();
   inMotion = true;
-  updateStatus(`Hit with ${currentClub.name} at ${powerInput.value}% power. Expected ~${shotDistance.toFixed(1)} m.`);
+  updateStatus(`Hit with ${currentClub.name} at ${powerInput.value}% power and ${aimInput.value}° aim. Expected ~${shotDistance.toFixed(1)} m.`);
   updateHUD();
 }
 
