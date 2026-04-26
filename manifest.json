@@ -2,14 +2,14 @@
   "name": "3D Golf Game",
   "short_name": "Golf Game",
   "description": "Play a 3D golf game with procedural holes in the browser.",
-  "start_url": "/mcgolf/index.html",
+  "start_url": "/mcgolf/",
   "scope": "/mcgolf/",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#2563eb",
   "icons": [
     {
-      "src": "icons/icon.svg",
+      "src": "/mcgolf/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml"
     }
