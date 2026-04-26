@@ -10,6 +10,10 @@
   <div id="hud">
     <h1>3D Golf Game</h1>
     <div class="panel">
+      <label>Hole <span id="holeNumber">1</span> of <span id="totalHoles">9</span></label>
+      <div id="courseScoreDisplay"></div>
+    </div>
+    <div class="panel">
       <label for="club">Club</label>
       <select id="club"></select>
     </div>
@@ -18,18 +22,18 @@
       <input id="power" type="range" min="10" max="100" value="50" />
     </div>
     <button id="hitButton">Hit Ball</button>
+    <button id="nextHoleButton" style="display: none; margin-top: 8px;">Next Hole</button>
     <div id="status"></div>
     <div id="scoreboard">
-      <div>Tee: <span id="teePosition"></span></div>
-      <div>Hole: <span id="holePosition"></span></div>
+      <div>Par: <span id="par">0</span></div>
       <div>Shots: <span id="shotCount">0</span></div>
-      <div>Distance to hole: <span id="distanceToHole">0</span> m</div>
+      <div>Distance: <span id="distanceToHole">0</span> m</div>
     </div>
   </div>
   <div id="canvasContainer"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="lib/three.min.js"></script>
+  <script src="lib/OrbitControls.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

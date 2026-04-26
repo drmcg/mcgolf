@@ -3,11 +3,13 @@ const clubSelect = document.getElementById('club');
 const powerInput = document.getElementById('power');
 const powerValue = document.getElementById('powerValue');
 const hitButton = document.getElementById('hitButton');
+const nextHoleButton = document.getElementById('nextHoleButton');
 const status = document.getElementById('status');
 const shotCountLabel = document.getElementById('shotCount');
 const distanceLabel = document.getElementById('distanceToHole');
-const teePositionLabel = document.getElementById('teePosition');
-const holePositionLabel = document.getElementById('holePosition');
+const holeNumberLabel = document.getElementById('holeNumber');
+const parLabel = document.getElementById('par');
+const courseScoreDisplay = document.getElementById('courseScoreDisplay');
 
 const CLUBS = [
   { name: 'Driver', factor: 1.5, accuracy: 0.75, description: 'Longest distance, less control.' },
@@ -41,6 +43,12 @@ let ballPosition = new THREE.Vector3();
 let targetVector = new THREE.Vector3();
 let inMotion = false;
 let currentClub = CLUBS[0];
+let aimingLine = null;
+let currentHole = 1;
+const TOTAL_HOLES = 9;
+let courseScore = [];
+let terrainHeightMap = [];
+let terrainMeshes = [];
 
 function init() {
   const width = window.innerWidth;
@@ -74,6 +82,8 @@ function init() {
   createHole();
 
   fillClubList();
+  courseScore = [];
+  updateStatus(`Hole 1 - Choose your club and power.`);
   updateHUD();
   animate();
 }
@@ -91,19 +101,33 @@ function fillClubList() {
   });
 }
 
+function clearTerrainMeshes() {
+  terrainMeshes.forEach(mesh => scene.remove(mesh));
+  terrainMeshes = [];
+}
+
 function buildCourse() {
+  clearTerrainMeshes();
   courseGrid = [];
+  terrainHeightMap = [];
   const grid = [];
+  
+  // Initialize grid and height map
   for (let x = 0; x < GRID_SIZE; x += 1) {
     grid[x] = [];
+    terrainHeightMap[x] = [];
     for (let z = 0; z < GRID_SIZE; z += 1) {
       grid[x][z] = 'rough';
+      // Perlin-like noise for height variation
+      terrainHeightMap[x][z] = Math.sin(x * 0.08) * Math.cos(z * 0.08) * 2;
     }
   }
 
   const path = createRandomFairwayPath();
   path.forEach((cell, index) => {
     grid[cell.x][cell.z] = index === path.length - 1 ? 'green' : 'fairway';
+    // Flatten fairway and green
+    terrainHeightMap[cell.x][cell.z] = index === path.length - 1 ? 0.1 : 0.05;
   });
 
   placeObstacles(grid, path);
@@ -159,10 +183,12 @@ function createTerrainMeshes(grid) {
       const mat = new THREE.MeshStandardMaterial({ color: TERRAIN[type].color, side: THREE.DoubleSide });
       const tile = new THREE.Mesh(planeGeometry, mat);
       tile.rotation.x = -Math.PI / 2;
-      tile.position.set((x - GRID_SIZE / 2) * TILE_SIZE + TILE_SIZE / 2, 0, (z - GRID_SIZE / 2) * TILE_SIZE + TILE_SIZE / 2);
+      const height = terrainHeightMap[x][z];
+      tile.position.set((x - GRID_SIZE / 2) * TILE_SIZE + TILE_SIZE / 2, height, (z - GRID_SIZE / 2) * TILE_SIZE + TILE_SIZE / 2);
       scene.add(tile);
-      if (type === 'sand') tile.position.y = 0.05;
-      if (type === 'water') tile.position.y = -0.1;
+      terrainMeshes.push(tile);
+      if (type === 'sand') tile.position.y = height + 0.05;
+      if (type === 'water') tile.position.y = height - 0.1;
     }
   }
 }
@@ -198,6 +224,43 @@ function placeHole() {
   holeMesh.position.set(pos.x, 0.5, pos.z);
 }
 
+function createAimingLine() {
+  if (aimingLine) scene.remove(aimingLine);
+  
+  const points = [];
+  points.push(ballPosition.clone());
+  const previewDistance = currentClub.factor * 35;
+  const previewEnd = new THREE.Vector3().copy(ballPosition).addScaledVector(targetVector, previewDistance);
+  points.push(previewEnd);
+  
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 2 });
+  aimingLine = new THREE.Line(geometry, material);
+  scene.add(aimingLine);
+}
+
+function calculatePar() {
+  const distance = cellToWorld(teeCell).distance = Math.hypot(
+    cellToWorld(teeCell).x - cellToWorld(holeCell).x,
+    cellToWorld(teeCell).z - cellToWorld(holeCell).z
+  );
+  // Rough par estimate: 35 units per stroke
+  if (distance < 50) return 3;
+  if (distance < 100) return 4;
+  return 5;
+}
+
+function updateCourseScoreDisplay() {
+  let html = '<div style="font-size: 11px; color: #64748b; letter-spacing: 2px;">';
+  for (let i = 1; i <= TOTAL_HOLES; i++) {
+    const score = courseScore[i - 1];
+    const scoreClass = score ? (score <= calculatePar() ? 'under' : 'over') : '';
+    html += `<span style="display: inline-block; width: 24px; ${score ? 'color: #e2e8f0;' : ''}">${score || '•'}</span>`;
+  }
+  html += '</div>';
+  courseScoreDisplay.innerHTML = html;
+}
+
 function cellToWorld(cell) {
   return {
     x: (cell.x - GRID_SIZE / 2) * TILE_SIZE + TILE_SIZE / 2,
@@ -207,13 +270,13 @@ function cellToWorld(cell) {
 
 function updateHUD() {
   powerValue.textContent = powerInput.value;
-  const teePos = `${teeCell.x}, ${teeCell.z}`;
-  const holePos = `${holeCell.x}, ${holeCell.z}`;
-  teePositionLabel.textContent = teePos;
-  holePositionLabel.textContent = holePos;
+  const par = calculatePar();
+  parLabel.textContent = par;
+  holeNumberLabel.textContent = currentHole;
   const dist = Math.max(0, ballMesh.position.distanceTo(holeMesh.position)).toFixed(1);
   distanceLabel.textContent = dist;
   shotCountLabel.textContent = shotCount;
+  updateCourseScoreDisplay();
 }
 
 function updateStatus(text) {
@@ -237,13 +300,14 @@ function computeShot() {
   targetVector.copy(pathDirection).applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(randomAim));
   const shotDistance = baseDistance * power * terrainMod;
   velocity = shotDistance / 12;
+  createAimingLine();
   return shotDistance;
 }
 
 function hitBall() {
   if (inMotion) return;
   if (ballMesh.position.distanceTo(holeMesh.position) < 3) {
-    updateStatus('Ball already in the hole. Press Refresh to play again.');
+    finishHole();
     return;
   }
   shotCount += 1;
@@ -251,6 +315,49 @@ function hitBall() {
   inMotion = true;
   updateStatus(`Hit with ${currentClub.name} at ${powerInput.value}% power. Expected ~${shotDistance.toFixed(1)} m.`);
   updateHUD();
+}
+
+function finishHole() {
+  courseScore.push(shotCount);
+  const par = calculatePar();
+  const scoreText = shotCount < par ? `Birdie! ${shotCount}` : shotCount === par ? `Par! ${shotCount}` : `Bogey ${shotCount}`;
+  updateStatus(`${scoreText} on hole ${currentHole}. Press Next Hole to continue.`);
+  hitButton.style.display = 'none';
+  nextHoleButton.style.display = 'block';
+}
+
+function nextHole() {
+  if (currentHole < TOTAL_HOLES) {
+    currentHole += 1;
+    shotCount = 0;
+    inMotion = false;
+    velocity = 0;
+    if (aimingLine) scene.remove(aimingLine);
+    aimingLine = null;
+    buildCourse();
+    resetBall();
+    placeHole();
+    hitButton.style.display = 'block';
+    nextHoleButton.style.display = 'none';
+    updateStatus(`Hole ${currentHole} - Choose your club and power.`);
+    updateHUD();
+  } else {
+    finishCourse();
+  }
+}
+
+function finishCourse() {
+  let totalScore = courseScore.reduce((a, b) => a + b, 0);
+  let parTotal = 0;
+  for (let i = 1; i <= TOTAL_HOLES; i++) {
+    currentHole = i;
+    parTotal += calculatePar();
+  }
+  const scoreDiff = totalScore - parTotal;
+  const scoreLine = scoreDiff < 0 ? `${Math.abs(scoreDiff)} under par` : scoreDiff === 0 ? 'Even par' : `${scoreDiff} over par`;
+  updateStatus(`Course Complete! Total: ${totalScore} strokes (${scoreLine})`);
+  hitButton.style.display = 'none';
+  nextHoleButton.style.display = 'none';
 }
 
 function animate() {
@@ -265,8 +372,13 @@ function animate() {
     } else {
       velocity = 0;
       inMotion = false;
+      if (aimingLine) {
+        scene.remove(aimingLine);
+        aimingLine = null;
+      }
       if (ballMesh.position.distanceTo(holeMesh.position) < 3) {
-        updateStatus(`Hole completed in ${shotCount} shots! Refresh the browser to play again.`);
+        // Ball in hole
+        finishHole();
       } else {
         updateStatus(`Ball stopped on ${terrain}. Choose next shot.`);
       }
@@ -286,6 +398,8 @@ powerInput.addEventListener('input', () => {
 });
 
 hitButton.addEventListener('click', hitBall);
+nextHoleButton.addEventListener('click', nextHole);
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();

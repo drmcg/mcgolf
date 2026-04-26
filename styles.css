@@ -39,6 +39,18 @@ select, input[type="range"], button {
   padding: 10px;
   background: #111827;
   color: #e2e8f0;
+  font-size: 14px;
+  font-family: inherit;
+}
+select {
+  appearance: auto;
+  cursor: pointer;
+  background-image: none;
+}
+select option {
+  background: #111827;
+  color: #e2e8f0;
+  padding: 8px;
 }
 button {
   cursor: pointer;
@@ -48,6 +60,11 @@ button {
 }
 button:hover {
   background: #1d4ed8;
+}
+button:disabled {
+  background: #1e293b;
+  border-color: #334155;
+  cursor: not-allowed;
 }
 #status {
   margin-top: 10px;
@@ -64,4 +81,9 @@ button:hover {
 #canvasContainer {
   position: absolute;
   inset: 0;
+  touch-action: none;
+}
+
+canvas {
+  touch-action: none;
 }
