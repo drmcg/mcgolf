@@ -43,6 +43,7 @@ let shotCount = 0;
 let velocity = 0;
 let ballPosition = new THREE.Vector3();
 let targetVector = new THREE.Vector3();
+let ballVelocity = new THREE.Vector3();
 let inMotion = false;
 let currentClub = CLUBS[0];
 let aimAngle = 0;
@@ -466,6 +467,7 @@ function resetBall() {
   const height = getTerrainHeightAt(pos.x, pos.z);
   ballPosition.set(pos.x, height + 1.2, pos.z);
   ballMesh.position.copy(ballPosition);
+  ballVelocity.set(0, 0, 0);
   velocity = 0;
   inMotion = false;
   shotCount = 0;
@@ -599,6 +601,8 @@ function computeShot() {
     .applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(randomAim));
   const shotDistance = baseDistance * power * terrainMod;
   velocity = shotDistance / 12;
+  const launchHeight = currentClub.name === 'Putter' ? 0 : 0.18 + power * 0.14;
+  ballVelocity.set(targetVector.x * velocity, launchHeight * velocity, targetVector.z * velocity);
   createAimingLine();
   return shotDistance;
 }
@@ -662,29 +666,47 @@ function finishCourse() {
 function animate() {
   requestAnimationFrame(animate);
   if (inMotion) {
-    ballPosition.addScaledVector(targetVector, velocity);
+    const GRAVITY = -0.12;
+    ballVelocity.y += GRAVITY;
+    ballPosition.add(ballVelocity);
     const terrainHeight = getTerrainHeightAt(ballPosition.x, ballPosition.z);
-    ballPosition.y = terrainHeight + 1.2;
-    ballMesh.position.copy(ballPosition);
-    velocity *= 0.96;
-    const terrain = getTerrainAtBall();
-    if (velocity > 0.01) {
-      velocity *= TERRAIN[terrain].multiplier > 0.8 ? 1 : 0.997;
-    } else {
-      velocity = 0;
-      inMotion = false;
-      if (aimingLine) {
-        scene.remove(aimingLine);
-        aimingLine = null;
-      }
-      if (ballMesh.position.distanceTo(holeMesh.position) < 3) {
-        // Ball in hole
-        finishHole();
-      } else {
-        updateStatus(`Ball stopped on ${terrain}. Choose next shot.`);
-        createAimingLine();
+
+    if (ballPosition.y <= terrainHeight + 1.2) {
+      ballPosition.y = terrainHeight + 1.2;
+      if (ballVelocity.y < 0) {
+        ballVelocity.y = 0;
+        ballVelocity.multiplyScalar(currentClub.name === 'Putter' ? 0.94 : 0.62);
       }
     }
+
+    const terrain = getTerrainAtBall();
+    const horizontalSpeed = Math.sqrt(ballVelocity.x * ballVelocity.x + ballVelocity.z * ballVelocity.z);
+    velocity = horizontalSpeed;
+
+    if (horizontalSpeed > 0.01) {
+      const damping = TERRAIN[terrain].multiplier > 0.8 ? 0.996 : 0.993;
+      ballVelocity.x *= damping;
+      ballVelocity.z *= damping;
+    } else {
+      ballVelocity.x = 0;
+      ballVelocity.z = 0;
+      if (ballVelocity.y === 0) {
+        velocity = 0;
+        inMotion = false;
+        if (aimingLine) {
+          scene.remove(aimingLine);
+          aimingLine = null;
+        }
+        if (ballMesh.position.distanceTo(holeMesh.position) < 3) {
+          finishHole();
+        } else {
+          updateStatus(`Ball stopped on ${terrain}. Choose next shot.`);
+          createAimingLine();
+        }
+      }
+    }
+
+    ballMesh.position.copy(ballPosition);
     if (ballMesh.position.y < -10) {
       resetBall();
       updateStatus('Ball lost. Reset to tee position.');
