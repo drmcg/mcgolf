@@ -1,6 +1,6 @@
 # 3D Golf Game
 
-This browser-based 3D golf game uses Three.js and procedural course generation. Play a full 9-hole course with realistic shot mechanics, terrain physics, and scoring.
+This browser-based 3D golf game uses Three.js and procedural course generation. Play a full 9-hole course with realistic shot mechanics, terrain physics, and scoring. test
 
 ## Features
 
